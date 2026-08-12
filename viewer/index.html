@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Matcha Flavoured Food Tree</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <svg id="canvas"></svg>
+
+  <div id="toolbar">
+    <span class="title">🍵 Matcha Flavoured Food Tree</span>
+    <button id="btn-reset" title="Reset zoom and clear selection">Reset</button>
+    <button id="btn-fit" title="Fit all nodes on screen">Fit</button>
+    <button id="btn-tune" title="Tune simulation forces">Tune</button>
+    <span id="mode-label" class="dim"></span>
+    <span id="counts" class="dim"></span>
+  </div>
+
+  <div id="tune" class="hidden">
+    <div class="tune-title">Force sliders</div>
+    <label>Repulsion (log)
+      <input type="range" id="s-charge" min="0" max="100" step="1" value="38">
+      <span id="v-charge" class="dim">273</span>
+    </label>
+    <label>Link strength
+      <input type="range" id="s-links" min="0" max="1" step="0.05" value="0.1">
+      <span id="v-links" class="dim">0.10</span>
+    </label>
+    <label>Link distance
+      <input type="range" id="s-linkd" min="20" max="250" step="5" value="65">
+      <span id="v-linkd" class="dim">65</span>
+    </label>
+    <label>Node padding
+      <input type="range" id="s-pad" min="0" max="40" step="1" value="0">
+      <span id="v-pad" class="dim">0</span>
+    </label>
+    <label>Pull strength
+      <input type="range" id="s-pull" min="0" max="50" step="0.5" value="30">
+      <span id="v-pull" class="dim">30.00</span>
+    </label>
+    <div class="tune-sub">Score weights</div>
+    <label>Lore amount
+      <input type="range" id="s-f-lore" min="0" max="3" step="0.1" value="1">
+      <span id="v-f-lore" class="dim">1.0</span>
+    </label>
+    <label>Extra lore amount
+      <input type="range" id="s-f-extra" min="0" max="3" step="0.1" value="1">
+      <span id="v-f-extra" class="dim">1.0</span>
+    </label>
+    <label>Extra lore time
+      <input type="range" id="s-f-time" min="0" max="3" step="0.1" value="1">
+      <span id="v-f-time" class="dim">1.0</span>
+    </label>
+    <label>Effect level
+      <input type="range" id="s-f-level" min="0" max="3" step="0.1" value="1">
+      <span id="v-f-level" class="dim">1.0</span>
+    </label>
+    <label>Effect duration
+      <input type="range" id="s-f-dur" min="0" max="3" step="0.1" value="1">
+      <span id="v-f-dur" class="dim">1.0</span>
+    </label>
+  </div>
+
+  <div id="detail" class="hidden">
+    <div id="detail-header"></div>
+    <div id="detail-body"></div>
+    <div id="detail-actions">
+      <button id="btn-focus-made-by">⬆ Made by</button>
+      <button id="btn-focus-used-in">⬇ Used in</button>
+      <button id="btn-deselect">Deselect (Esc)</button>
+    </div>
+  </div>
+
+  <div id="legend"></div>
+
+  <div id="scoretip" class="hidden"></div>
+
+  <div id="help">
+    <b>Drag</b>: move node · <b>Wheel</b>: zoom · <b>Click+space</b>: pan ·
+    <b>Click node</b>: isolate its ancestry + descendants · <b>Esc</b>: clear
+  </div>
+</div>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
