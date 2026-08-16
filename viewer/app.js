@@ -445,6 +445,14 @@ function childrenOf(id) {
   return state.rawLinks.filter(l => l.target === id).map(l => l.source);
 }
 
+// Leaf materials terminate traversal: raw items, tags, and base ingredients
+// (e.g. Sugar is an "ingredient" node, not expanded to Honey).
+function isLeaf(id) {
+  const n = nodesById.get(id);
+  if (!n) return true;
+  return !!n.raw || n.category === "ingredient" || n.category === "tag";
+}
+
 function ancestorsOf(id) {
   const out = new Set();
   const stack = [...parentsOf(id)];
@@ -452,7 +460,7 @@ function ancestorsOf(id) {
     const p = stack.pop();
     if (out.has(p)) continue;
     out.add(p);
-    stack.push(...parentsOf(p));
+    if (!isLeaf(p)) stack.push(...parentsOf(p));
   }
   return out;
 }
@@ -464,7 +472,7 @@ function descendantsOf(id) {
     const c = stack.pop();
     if (out.has(c)) continue;
     out.add(c);
-    stack.push(...childrenOf(c));
+    if (!isLeaf(c)) stack.push(...childrenOf(c));
   }
   return out;
 }
@@ -590,7 +598,7 @@ document.addEventListener("mousemove", (e) => {
 // top-level call falls back to treating the item as an opaque material.
 function rawCostMap(id, qty, visiting) {
   const n = nodesById.get(id);
-  if (!n || n.raw) {
+  if (!n || isLeaf(id)) {
     const out = new Map();
     out.set(id, { label: n ? n.label : id, img: n && n.img, count: qty });
     return out;
