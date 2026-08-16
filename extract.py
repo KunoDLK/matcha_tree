@@ -656,7 +656,8 @@ def main():
             "count": recs[0]["count"],
             "stack": comps.get("minecraft:max_stack_size", 64),
             "remainder": comps.get("minecraft:use_remainder", {}).get("id", "").replace("minecraft:", ""),
-            "lore": [x["text"] for x in comps.get("minecraft:lore", []) if isinstance(x, dict)],
+            "lore": [x.get("text") or pack.lang.get(x.get("translate", ""), "")
+                     for x in comps.get("minecraft:lore", []) if isinstance(x, dict)],
             "effects": parse_effects(pack, comps),
             "nutrition": comps.get("minecraft:food", {}).get("nutrition", 0),
             "can_always_eat": comps.get("minecraft:food", {}).get("can_always_eat", False),
