@@ -238,7 +238,7 @@ function setupSimulation() {
   simulation = d3.forceSimulation()
     // slow the cooling so the layout has time to organise (default 0.0228
     // stops after ~290 ticks, which is too soon once nodes must travel)
-    .alphaDecay(0.008)
+    .alphaDecay(0.004)
     .alphaMin(0.0002)
     .force("link", d3.forceLink().id(d => d.id)
       .distance(65)
