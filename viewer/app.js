@@ -545,6 +545,58 @@ document.addEventListener("mousemove", (e) => {
   tip.style.top = Math.min(e.clientY + 14, window.innerHeight - tip.offsetHeight - 12) + "px";
 });
 
+/* ---------- raw material cost ---------- */
+// cost of the minimum craft amount: one full recipe execution (its yield).
+// Cycles (flour ⇄ flour bag) are handled by rejecting cyclic paths: a node
+// already on the recursion path returns null (unresolvable), which propagates
+// upward so the parent recipe is skipped in favour of an acyclic one. Only the
+// top-level call falls back to treating the item as an opaque material.
+function rawCostMap(id, qty, visiting) {
+  const n = nodesById.get(id);
+  if (!n || n.raw) {
+    const out = new Map();
+    out.set(id, { label: n ? n.label : id, img: n && n.img, count: qty });
+    return out;
+  }
+  if (visiting.has(id)) return null;
+  visiting.add(id);
+
+  let best = null, bestTotal = Infinity;
+  for (const r of n.recipes) {
+    const crafts = Math.ceil(qty / (r.count || 1));
+    const cost = new Map();
+    let cyclic = false;
+    for (const ing of r.ingredients) {
+      const sub = rawCostMap(ing.id, ing.count * crafts, visiting);
+      if (sub === null) { cyclic = true; break; }
+      for (const [mid, m] of sub) {
+        const prev = cost.get(mid);
+        if (prev) prev.count += m.count;
+        else cost.set(mid, { label: m.label, img: m.img, count: m.count });
+      }
+    }
+    if (cyclic) continue;
+    const total = [...cost.values()].reduce((s, m) => s + m.count, 0);
+    if (total < bestTotal) { best = { recipe: r, cost }; bestTotal = total; }
+  }
+  visiting.delete(id);
+
+  if (!best) return null;
+  return best.cost;
+}
+
+function computeRawCost(id) {
+  const n = nodesById.get(id);
+  if (!n) return null;
+  let cost = rawCostMap(id, 1, new Set());
+  if (cost === null) {
+    cost = new Map([[id, { label: n.label, img: n.img, count: 1 }]]);
+  }
+  const rows = [...cost.entries()].sort((a, b) => b[1].count - a[1].count);
+  const total = rows.reduce((s, r) => s + r[1].count, 0);
+  return { rows, total, recipes: n.recipes };
+}
+
 /* ---------- detail panel ---------- */
 function showDetail(id) {
   const n = nodesById.get(id);
@@ -564,6 +616,20 @@ function showDetail(id) {
   header.appendChild(tag);
 
   let html = "";
+  const cost = computeRawCost(id);
+  if (cost) {
+    const craftNote = n.recipes && n.recipes.length > 1
+      ? " (cheapest recipe)" : "";
+    html += `<div class="sec">Raw materials<span class="dim"> · min craft${craftNote}</span></div>`;
+    if (cost.rows.length) {
+      html += `<div class="rawcost">` + cost.rows.map(r =>
+        `<div class="rawrow">${itemIconHtml({ label: r[1].label, img: r[1].img })}` +
+        `<span class="rawname">${esc(r[1].label)}</span>` +
+        `<span class="rawcount">×${r[1].count}</span></div>`
+      ).join("") + `</div>`;
+      html += `<div class="kv dim">${cost.rows.length} distinct · ${cost.total} items</div>`;
+    }
+  }
   if (n.is_food) {
     html += `<div class="kv"><b>Effects:</b></div><ul>`;
     for (const e of n.effects.applied) {

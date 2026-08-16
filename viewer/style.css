@@ -135,13 +135,56 @@ button:hover { background: #2d3949; }
   overflow-y: auto;
 }
 #detail.hidden { display: none; }
-#detail-header { font-weight: 700; font-size: 15px; margin-bottom: 8px; }
+#detail-header { font-weight: 700; font-size: 15px; margin-bottom: 8px; overflow-wrap: break-word; }
 #detail-header .tag { display: inline-block; font-size: 11px; padding: 1px 8px; border-radius: 20px; margin-left: 6px; vertical-align: 2px; }
 #detail-body { font-size: 13px; color: #c3c9d4; line-height: 1.5; }
 #detail-body .kv { margin: 3px 0; }
 #detail-body .sec { margin-top: 8px; font-weight: 600; color: var(--fg); }
 #detail-body ul { margin: 4px 0 4px 16px; }
 #detail-actions { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* raw-material cost rows in the detail panel */
+.rawcost { margin-top: 6px; }
+.rawrow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 3px 0;
+}
+.rawrow img {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  image-rendering: pixelated;
+  background: #232c3a;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+}
+.rawrow .noimg {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #232c3a;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--dim);
+  font-weight: 700;
+  font-size: 11px;
+}
+.rawrow .rawname {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+.rawrow .rawcount {
+  flex: 0 0 auto;
+  font-weight: 700;
+  color: var(--fg);
+  white-space: nowrap;
+}
 
 /* --- recipe diagram in the detail panel --- */
 .recipe { margin: 6px 0 12px; }
@@ -197,10 +240,11 @@ button:hover { background: #2d3949; }
   margin-top: 2px;
   font-size: 8.5px;
   color: var(--dim);
-  max-width: 36px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  max-width: 52px;
+  white-space: normal;
+  overflow-wrap: break-word;
+  text-align: center;
+  line-height: 1.2;
 }
 .anyicons { position: relative; width: 30px; height: 30px; }
 .anyicons img, .anyicons .noimg {
