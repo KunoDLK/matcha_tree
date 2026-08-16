@@ -126,7 +126,7 @@ function signedLog(x) {
   return Math.sign(x) * Math.log(1 + Math.abs(x));
 }
 
-// _pull in [-1, 1]: worst item -> -1 (max up), best item -> +1 (max down).
+// _pull in [-1, 1]: best item -> -1 (pulled up/top), worst item -> +1 (pulled down).
 // Normalised linearly over the LOG of the score so a few huge scores don't
 // crush the rest of the foods to the extremes.
 function computePulls() {
@@ -138,7 +138,7 @@ function computePulls() {
   const pullById = new Map();
   foods.forEach((n, i) => {
     const up = range > 0 ? 1 - 2 * (logs[i] - minL) / range : 0;  // +1 up, -1 down
-    pullById.set(n.id, -up);
+    pullById.set(n.id, up);
   });
   state.allNodes.forEach(n => n._pull = pullById.get(n.id) || 0);
 }
