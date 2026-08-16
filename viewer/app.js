@@ -840,10 +840,29 @@ document.getElementById("btn-all").addEventListener("click", () => {
   applyDataset("all");
   renderLegend();
 });
+// re-apply the stage filter. If an item is selected, keep it and its
+// ancestor/descendant chain visible; only the rest of the graph is filtered.
+function applyStage() {
+  if (currentMode !== "all") return;
+  if (!selectedId) { showAll(); return; }
+  const ancestors = ancestorsOf(selectedId);
+  const descendants = descendantsOf(selectedId);
+  const pinned = new Set([selectedId, ...ancestors, ...descendants]);
+  let nodes = state.allNodes.filter(n =>
+    pinned.has(n.id) || (n.stage ?? 0) <= stageLimit);
+  const ids = new Set(nodes.map(n => n.id));
+  let links = state.allLinks.filter(l => ids.has(l.source) && ids.has(l.target));
+  links.forEach(l => { l.highlighted = l.source === selectedId || ancestors.has(l.source); });
+  visibleIds = ids;
+  setMode();
+  bind(nodes, links);
+  showDetail(selectedId);
+}
+
 document.getElementById("s-stage").addEventListener("input", (e) => {
   stageLimit = +e.target.value;
   document.getElementById("v-stage").textContent = stageLimit;
-  showAll();
+  applyStage();
 });
 document.getElementById("btn-deselect").addEventListener("click", clearSelection);
 document.getElementById("btn-focus-made-by").addEventListener("click", () => {
