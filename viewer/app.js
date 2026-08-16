@@ -251,7 +251,7 @@ function setupSimulation() {
 }
 
 // spring toward the origin; strength scales how hard nodes are pulled back
-let centerStrength = 0.2;
+let centerStrength = 0.02;
 function centerForce(alpha) {
   for (const node of simulation.nodes()) {
     node.vx -= node.x * alpha * centerStrength;
