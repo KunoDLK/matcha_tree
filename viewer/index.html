@@ -81,6 +81,10 @@
   </div>
 
   <div id="detail" class="hidden">
+    <div id="viewing-bar">
+      <div id="viewing-label">Now viewing: <span id="viewing-name"></span></div>
+      <button id="btn-return">Return to full view</button>
+    </div>
     <div id="detail-header"></div>
     <div id="detail-body"></div>
     <div id="detail-actions">
@@ -96,7 +100,7 @@
 
   <div id="help">
     <b>Drag</b>: move node · <b>Wheel</b>: zoom · <b>Click+space</b>: pan ·
-    <b>Click node</b>: isolate its ancestry + descendants · <b>Esc</b>: clear
+    <b>Click node</b>: inspect its ancestry + descendants · <b>Esc</b>: full view
   </div>
 </div>
 <script src="https://d3js.org/d3.v7.min.js"></script>

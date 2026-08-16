@@ -229,11 +229,6 @@ function setupSvg() {
       d3.selectAll(".label-text").attr("opacity", event.transform.k > 0.35 ? 1 : 0);
     });
   svg.call(zoom);
-
-  svg.on("click", (event) => {
-    // clicking empty canvas clears selection
-    if (event.target === svg.node()) clearSelection();
-  });
 }
 
 /* ---------- simulation ---------- */
@@ -647,6 +642,7 @@ function showDetail(id) {
   const header = document.getElementById("detail-header");
   const body = document.getElementById("detail-body");
   panel.classList.remove("hidden");
+  document.getElementById("viewing-name").textContent = n.label;
 
   header.innerHTML = "";
   header.appendChild(document.createTextNode(n.label));
@@ -865,6 +861,7 @@ document.getElementById("s-stage").addEventListener("input", (e) => {
   applyStage();
 });
 document.getElementById("btn-deselect").addEventListener("click", clearSelection);
+document.getElementById("btn-return").addEventListener("click", clearSelection);
 document.getElementById("btn-focus-made-by").addEventListener("click", () => {
   if (selectedId) selectNode(selectedId);
 });

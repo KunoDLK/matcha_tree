@@ -164,6 +164,24 @@ button.active { background: #2d3949; border-color: #5b8def; color: #fff; }
 #detail-body ul { margin: 4px 0 4px 16px; }
 #detail-actions { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 6px; }
 
+/* "now viewing" bar at the top of the detail panel */
+#viewing-bar {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+  margin-bottom: 10px;
+}
+#viewing-label {
+  font-size: 12px;
+  color: var(--dim);
+  margin-bottom: 6px;
+  overflow-wrap: break-word;
+}
+#viewing-label #viewing-name {
+  color: var(--fg);
+  font-weight: 700;
+}
+#btn-return { display: block; width: 100%; }
+
 /* raw-material cost rows in the detail panel */
 .rawcost { margin-top: 6px; }
 .rawrow {
