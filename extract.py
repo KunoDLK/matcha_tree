@@ -22,11 +22,32 @@ import json
 import os
 import re
 import tempfile
+import urllib.request
 import zipfile
 from collections import defaultdict
 
 DEFAULT_ZIP = "/home/kuno/Docker-Server/copyparty/data/minecraft/world/datapacks/Matcha_Flavoured_1_03.zip"
 DEFAULT_RESPACK = "/home/kuno/Docker-Server/copyparty/data/temp/Matcha_Flavoured.zip"
+
+
+def resolve_zip(path_or_url):
+    """Return a local zip path. If given a http(s) URL, download it first."""
+    if isinstance(path_or_url, str) and path_or_url.startswith(("http://", "https://")):
+        print("downloading", path_or_url)
+        fd, tmp = tempfile.mkstemp(suffix=".zip")
+        os.close(fd)
+        try:
+            with urllib.request.urlopen(path_or_url, timeout=120) as r, open(tmp, "wb") as f:
+                while True:
+                    chunk = r.read(1 << 16)
+                    if not chunk:
+                        break
+                    f.write(chunk)
+            return tmp
+        except Exception:
+            os.unlink(tmp)
+            raise
+    return path_or_url
 
 RECIPE_TYPES = {
     "minecraft:smelting": "smelting",
@@ -248,18 +269,22 @@ def norm_slots(d):
 
 def main():
     ap = argparse.ArgumentParser(description="Extract Matcha food graph")
-    ap.add_argument("--zip", default=DEFAULT_ZIP, help="Path to datapack zip")
+    ap.add_argument("--zip", default=DEFAULT_ZIP,
+                    help="Datapack zip: a file path or an http(s) URL")
     ap.add_argument("--respack", default=DEFAULT_RESPACK,
-                    help="Path to resource pack zip (item textures)")
+                    help="Resource pack zip (item textures): file path or http(s) URL")
     ap.add_argument("-o", "--out", default="food_tree.json")
     ap.add_argument("--images", default=None,
                     help="Directory to write item textures (default: <outdir>/images)")
     ap.add_argument("--dump-recipe-types", action="store_true", help="print recipe-type census")
     args = ap.parse_args()
 
-    pack = Pack(args.zip)
+    zip_path = resolve_zip(args.zip)
+    respack_path = resolve_zip(args.respack) if args.respack else None
+
+    pack = Pack(zip_path)
     lang = pack.lang
-    respack = ResPack(args.respack)
+    respack = ResPack(respack_path)
     if not respack.ok():
         print("WARNING: resource pack not found at %r -> images skipped" % args.respack)
 
@@ -674,6 +699,11 @@ def main():
     if containers:
         print("containers:", {cid: c["variants"] for cid, c in containers.items()})
     print("written ->", os.path.abspath(args.out))
+
+    # clean up zips we downloaded from a URL
+    for tmp in (zip_path, respack_path):
+        if tmp != args.zip and tmp != args.respack and tmp and os.path.exists(tmp):
+            os.unlink(tmp)
 
 
 if __name__ == "__main__":

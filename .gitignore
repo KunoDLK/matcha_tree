@@ -1,2 +1,5 @@
 __pycache__/
 .venv/
+viewer/food_tree.json
+viewer/images/
+food_tree.json
