@@ -76,6 +76,15 @@ to follow it.
 - Items the resource pack doesn't texture (vanilla cake, raw meats, sugar…)
   fall back to a lettered chip instead of an icon.
 
+## Modes
+
+- **Food** (default): the score-rated food crafting tree — best foods pulled to
+  the top, worst to the bottom.
+- **All**: every craftable item across the whole datapack (crafting, stonecutting,
+  smelting, smoking, blasting, smithing, blessings, potions). No rating is
+  applied. A **Progress** slider reveals items by the advancement depth at which
+  they are unlocked (0 = raw materials / earliest, max = end-game).
+
 ## Docker
 
 Serve the viewer headlessly in a container (no pywebview/browser needed):

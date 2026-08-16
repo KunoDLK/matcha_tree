@@ -55,6 +55,9 @@ RECIPE_TYPES = {
     "minecraft:smoking": "smoking",
     "minecraft:crafting_shapeless": "shapeless",
     "minecraft:crafting_shaped": "shaped",
+    "minecraft:stonecutting": "stonecutting",
+    "minecraft:blasting": "blasting",
+    "minecraft:smithing_transform": "smithing",
 }
 
 # vanilla item tags referenced by the food recipes.  The pack relies on the base
@@ -130,6 +133,31 @@ class Pack:
         for fn in sorted(os.listdir(base)):
             if fn.endswith(".json"):
                 yield os.path.join(base, fn), fn
+
+    def all_recipe_files(self):
+        """Yield (path, namespace, fn) for every recipe in the datapack."""
+        data_dir = os.path.join(self.tmpdir, "data")
+        for ns in sorted(os.listdir(data_dir)):
+            base = os.path.join(data_dir, ns, "recipe")
+            if not os.path.isdir(base):
+                continue
+            for fn in sorted(os.listdir(base)):
+                if fn.endswith(".json"):
+                    yield os.path.join(base, fn), ns, fn
+
+    def advancement_files(self):
+        """Yield (path, relname) for every advancement under data/*/advancement."""
+        data_dir = os.path.join(self.tmpdir, "data")
+        for ns in sorted(os.listdir(data_dir)):
+            base = os.path.join(data_dir, ns, "advancement")
+            if not os.path.isdir(base):
+                continue
+            for root, _dirs, files in os.walk(base):
+                for fn in sorted(files):
+                    if fn.endswith(".json"):
+                        full = os.path.join(root, fn)
+                        rel = os.path.relpath(full, data_dir).replace(os.sep, "/")
+                        yield full, rel
 
 
 class ResPack:
@@ -261,15 +289,279 @@ def norm_slots(d):
                 if ch in d["key"]:
                     key_counts[ch] += 1
         slots = [(d["key"][ch], key_counts[ch]) for ch in d["key"]]
+    elif d.get("type") == "minecraft:smithing_transform":
+        slots = [(d.get("template"), 1), (d.get("base"), 1), (d.get("addition"), 1)]
     out = []
     for value, cnt in slots:
         if isinstance(value, dict) and "item" in value:
             value = value["item"]
+        if isinstance(value, dict):
+            value = value.get("item") or value.get("id")
         if isinstance(value, list):
             out.append(("alt", [x if isinstance(x, str) else x.get("item") for x in value], cnt))
-        else:
+        elif value:
             out.append(("one", [value], cnt))
     return out
+
+
+def simple_name(pack, comp, fallback_id):
+    """Name resolution for arbitrary recipes (item_name/custom_name -> lang -> humanize)."""
+    for key in ("minecraft:item_name", "minecraft:custom_name"):
+        nc = comp.get(key)
+        if isinstance(nc, dict) and "translate" in nc:
+            return pack.lang.get(nc["translate"], humanize(nc["translate"].split(".")[-1]))
+        if isinstance(nc, str):
+            return nc
+    lang_key = "item.minecraft." + fallback_id
+    if lang_key in pack.lang:
+        return pack.lang[lang_key]
+    return humanize(fallback_id)
+
+
+def advancement_stages(pack):
+    """Map recipe ids and item ids to a progression stage (0 = earliest).
+
+    Stage = min depth of any tutorial advancement that references the recipe
+    (via recipe_crafted criteria or rewards) or the item (via criteria items).
+    """
+    adv = {}
+    for path, rel in pack.advancement_files():
+        rel = rel.replace(".json", "")
+        if not rel.startswith("main/advancement/tutorial/"):
+            continue
+        try:
+            adv[rel] = json.load(open(path))
+        except Exception:
+            continue
+    depth = {}
+    def getdepth(name, seen):
+        if name in depth:
+            return depth[name]
+        if name in seen:
+            return 0
+        d = adv[name].get("parent", "")
+        if d.startswith("main:tutorial/"):
+            parent_key = "main/advancement/tutorial/" + d[len("main:tutorial/"):]
+            if parent_key in adv:
+                depth[name] = 1 + getdepth(parent_key, seen | {name})
+                return depth[name]
+        depth[name] = 0
+        return depth[name]
+    for name in adv:
+        getdepth(name, set())
+
+    recipe_stage = {}
+    item_stage = {}
+    for name, d in adv.items():
+        st = depth[name]
+        for rid in (d.get("rewards") or {}).get("recipes", []):
+            if rid not in recipe_stage or st < recipe_stage[rid]:
+                recipe_stage[rid] = st
+        for crit in d.get("criteria", {}).values():
+            cond = crit.get("conditions", {})
+            rid = cond.get("recipe_id")
+            if rid and (rid not in recipe_stage or st < recipe_stage[rid]):
+                recipe_stage[rid] = st
+            for it in cond.get("items") or []:
+                for k in ("items", "item"):
+                    v = it.get(k)
+                    if isinstance(v, str) and not v.startswith("#"):
+                        b = v.replace("minecraft:", "")
+                        if b not in item_stage or st < item_stage[b]:
+                            item_stage[b] = st
+    return recipe_stage, item_stage
+
+
+def build_all_graph(pack, lang, respack, recipe_stage, item_stage):
+    """Build a graph of every craftable item across all recipe namespaces."""
+    recipes = []
+    for path, ns, fn in pack.all_recipe_files():
+        if ns == "food" and fn in SKIP_RECIPE_FILES:
+            continue
+        try:
+            d = json.load(open(path))
+        except Exception:
+            continue
+        rtype = d.get("type", "")
+        result = d.get("result", {})
+        rid = (result.get("id") or "").replace("minecraft:", "")
+        comp = result.get("components", {})
+        name = simple_name(pack, comp, rid)
+        recipes.append({
+            "ns": ns, "fn": fn, "rid": ns + ":" + fn[:-5],
+            "rtype": RECIPE_TYPES.get(rtype, rtype),
+            "category": d.get("category", "misc"),
+            "result_id": rid, "count": result.get("count", 1),
+            "comp": comp, "name": name, "key": slugify(name),
+            "is_food": "minecraft:food" in comp,
+            "item_model": comp.get("minecraft:item_model", "").replace("minecraft:", ""),
+            "slots": norm_slots(d),
+        })
+
+    nodes = {}
+    def ensure(key, label, base, category, is_food, raw):
+        if key not in nodes:
+            nodes[key] = {
+                "id": key, "label": label, "base": base,
+                "category": category, "is_food": is_food, "raw": raw,
+                "made_by_recipes": [], "result_ids": [], "count": 1,
+                "stack": 64, "remainder": "", "lore": [],
+                "effects": {"applied": [], "cleanse": [], "clear_all": False},
+                "nutrition": 0, "can_always_eat": False,
+                "recipes": [], "img": None, "recipe_ids": [],
+            }
+        return nodes[key]
+
+    for rec in recipes:
+        n = ensure(rec["key"], rec["name"], rec["result_id"], "misc",
+                   rec["is_food"], False)
+        n["made_by_recipes"].append(rec["rtype"])
+        n["result_ids"].append(rec["result_id"])
+        n["count"] = rec["count"]
+        n["recipe_ids"].append(rec["rid"])
+        if rec["is_food"] and rec["item_model"]:
+            n["img"] = respack.texture(rec["item_model"]) or None
+
+    link_types = defaultdict(set)
+    raw_links = []
+    for rec in recipes:
+        rk = rec["key"]
+        for kind, ids, cnt in rec["slots"]:
+            for raw_id in ids:
+                if raw_id.startswith("#"):
+                    tag = raw_id[1:].replace("minecraft:", "")
+                    ik = "tag:" + tag
+                    ensure(ik, humanize(tag) + " (tag)", "#" + tag,
+                           "tag", False, True)
+                else:
+                    iid = raw_id.replace("minecraft:", "")
+                    label = lang.get("item.minecraft." + iid, humanize(iid))
+                    ik = slugify(label)
+                    ensure(ik, label, iid, "raw", False, True)
+                if ik != rk:
+                    raw_links.append((rk, ik))
+                    link_types[(rk, ik)].add(rec["rtype"])
+
+    # upgrade ingredient nodes that are also recipe results
+    for rec in recipes:
+        n = nodes[rec["key"]]
+        n["raw"] = False
+        if n["category"] == "raw":
+            n["category"] = "ingredient"
+
+    # classify result nodes
+    def all_category(node):
+        if node["is_food"]:
+            return "food"
+        if node["category"] == "tag":
+            return "tag"
+        if node.get("made_by_recipes"):
+            t = node["made_by_recipes"][0]
+            if t in ("smithing",):
+                return "tool"
+            if t in ("stonecutting",):
+                return "building"
+            if t in ("shaped", "shapeless"):
+                return "crafted"
+            if t in ("smelting", "campfire", "smoking", "blasting"):
+                return "material"
+        return node["category"] if node["category"] in ("raw", "ingredient") else "misc"
+
+    for node in nodes.values():
+        node["category"] = all_category(node)
+
+    links = [{"source": s, "target": t, "types": sorted(ts)}
+             for (s, t), ts in sorted(link_types.items())]
+
+    # resolve images (fall back to base / model / texture)
+    for node in nodes.values():
+        if node["img"]:
+            continue
+        for cand in ([node["base"], node["id"]] if not node.get("raw") else [node["base"]]):
+            t = respack.texture(cand)
+            if t:
+                node["img"] = t
+                break
+
+    # unlock stage: advancement-derived, else dependency depth
+    def dep_depth(key, seen):
+        n = nodes.get(key)
+        if not n or n.get("raw"):
+            return 0
+        if key in seen:
+            return 0
+        seen = seen | {key}
+        best = 0
+        for ing in parents_map.get(key, ()):
+            best = max(best, 1 + dep_depth(ing, seen))
+        return best
+
+    parents_map = defaultdict(set)
+    for l in links:
+        parents_map[l["source"]].add(l["target"])
+
+    for node in nodes.values():
+        st = None
+        for rid in node.get("recipe_ids", []):
+            if rid in recipe_stage and (st is None or recipe_stage[rid] < st):
+                st = recipe_stage[rid]
+        for b in node.get("result_ids", [node["base"]]):
+            if b in item_stage and (st is None or item_stage[b] < st):
+                st = item_stage[b]
+        if node["base"] in item_stage and (st is None or item_stage[node["base"]] < st):
+            st = item_stage[node["base"]]
+        node["stage"] = st if st is not None else dep_depth(node["id"], set())
+
+    # recipe diagrams (resolve slots to node ids)
+    def resolve_slot(raw_id, cnt):
+        if raw_id.startswith("#"):
+            key = "tag:" + raw_id[1:].replace("minecraft:", "")
+        else:
+            iid = raw_id.replace("minecraft:", "")
+            label = lang.get("item.minecraft." + iid, humanize(iid))
+            key = slugify(label)
+        n = nodes.get(key)
+        if not n:
+            return None
+        return {"id": key, "label": n["label"], "img": n.get("img"), "count": cnt}
+
+    for rec in recipes:
+        node = nodes.get(rec["key"])
+        if not node:
+            continue
+        for kind, ids, cnt in rec["slots"]:
+            if kind == "one":
+                e = resolve_slot(ids[0], cnt)
+            else:
+                entries = [resolve_slot(i, 1) for i in ids]
+                entries = [x for x in entries if x]
+                if not entries:
+                    continue
+                if len({x["id"] for x in entries}) == 1:
+                    e = dict(entries[0])
+                    e["count"] = cnt
+                else:
+                    e = {"id": entries[0]["id"], "label": entries[0]["label"],
+                         "img": entries[0]["img"], "count": cnt, "any_of": entries}
+            if not e:
+                continue
+            found = False
+            for r in node["recipes"]:
+                if r["type"] == rec["rtype"]:
+                    found = True
+                    for ing in r["ingredients"]:
+                        if ing["id"] == e["id"]:
+                            ing["count"] += e["count"]
+                            found = True
+                            break
+                    else:
+                        r["ingredients"].append(e)
+                    break
+            if not found:
+                node["recipes"].append({"type": rec["rtype"], "count": rec["count"],
+                                        "ingredients": [e]})
+
+    return nodes, links
 
 
 def main():
@@ -692,12 +984,41 @@ def main():
         node.pop("img_candidates", None)
         node.pop("_members", None)
 
-    out = {"nodes": list(new_nodes.values()), "links": links,
-           "stats": {"nodes": len(new_nodes), "links": len(links)}}
+    # ---- all-mode graph --------------------------------------------------------
+    recipe_stage, item_stage = advancement_stages(pack)
+    all_nodes, all_links = build_all_graph(pack, lang, respack,
+                                           recipe_stage, item_stage)
+    max_stage = max((n.get("stage") or 0 for n in all_nodes.values()), default=0)
+
+    # copy textures referenced by the all graph into the images dir too
+    if respack.ok():
+        os.makedirs(images_dir, exist_ok=True)
+        copied = set()
+        for n in all_nodes.values():
+            if n.get("img"):
+                try:
+                    if respack.texture(n["img"]):
+                        copied.add(n["img"])
+                except Exception:
+                    pass
+        for name in sorted(copied):
+            dest = os.path.join(images_dir, name + ".png")
+            if not os.path.exists(dest):
+                with open(dest, "wb") as f:
+                    f.write(respack.read_texture(name))
+
+    out = {
+        "food": {"nodes": list(new_nodes.values()), "links": links},
+        "all": {"nodes": list(all_nodes.values()), "links": all_links,
+                "max_stage": max_stage},
+        "stats": {"food_nodes": len(new_nodes), "food_links": len(links),
+                  "all_nodes": len(all_nodes), "all_links": len(all_links)},
+    }
     with open(args.out, "w") as f:
         json.dump(out, f, indent=1)
 
-    print(f"nodes: {len(new_nodes)}  links: {len(links)}")
+    print(f"food: {len(new_nodes)} nodes / {len(links)} links")
+    print(f"all: {len(all_nodes)} nodes / {len(all_links)} links (max stage {max_stage})")
     print("recipe types:", dict(recipe_type_count))
     cats = defaultdict(int)
     for n in new_nodes.values():

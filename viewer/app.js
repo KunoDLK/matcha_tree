@@ -14,6 +14,10 @@ const CAT_COLORS = {
   golden: "#ffd54f",
   potion: "#ba68c8",
   misc: "#90a4ae",
+  food: "#66bb6a",
+  tool: "#4fc3f7",
+  building: "#ffb74d",
+  material: "#7a8598",
 };
 
 const CAT_LABELS = {
@@ -30,6 +34,10 @@ const CAT_LABELS = {
   golden: "Crafted golden",
   potion: "Potion",
   misc: "Other",
+  food: "Food",
+  tool: "Tool / gear",
+  building: "Building",
+  material: "Material",
 };
 
 // edge colour by creation method
@@ -144,8 +152,10 @@ function computePulls() {
   state.allNodes.forEach(n => n._pull = pullById.get(n.id) || 0);
 }
 
-// constant-direction pull scaled by the node's score-derived value
+// constant-direction pull scaled by the node's score-derived value.
+// Disabled in "all" mode — rating only applies to the food tree.
 function scoreForce(alpha) {
+  if (currentMode !== "food") return;
   for (const node of simulation.nodes()) {
     if (!node.is_food || !node._pull) continue;
     node.vy += alpha * node._pull * scoreStrength;
@@ -153,6 +163,25 @@ function scoreForce(alpha) {
 }
 
 /* ---------- load ---------- */
+let currentMode = "food";     // "food" | "all"
+let maxStage = 0;             // highest unlock stage in the "all" dataset
+let stageLimit = null;        // progression slider: reveal nodes with stage <= this
+
+const datasets = { food: null, all: null };
+
+function applyDataset(name) {
+  currentMode = name;
+  const ds = datasets[name];
+  state.allNodes = ds.nodes.map(n => ({ ...n }));
+  state.allLinks = ds.links.map(l => ({ ...l }));
+  state.rawLinks = ds.links.map(l => ({ source: l.source, target: l.target }));
+  nodesById = new Map(state.allNodes.map(n => [n.id, n]));
+  linkById = new Map(state.allLinks.map(l => [l.source + "|" + l.target, l]));
+  computePulls();
+  showAll();
+  setMode();
+}
+
 function load() {
   setupSvg();
   setupSimulation();
@@ -161,17 +190,18 @@ function load() {
     .then(r => r.json())
     .then(data => {
       graph = data;
-      state.allNodes = graph.nodes.map(n => ({ ...n }));
-      state.allLinks = graph.links.map(l => ({ ...l }));
-      // keep string-only copies for ancestor/descendant queries; d3.forceLink
-      // mutates the links it is given (source/target become object refs)
-      state.rawLinks = graph.links.map(l => ({ source: l.source, target: l.target }));
-
-      nodesById = new Map(state.allNodes.map(n => [n.id, n]));
-      linkById = new Map(state.allLinks.map(l => [l.source + "|" + l.target, l]));
-
-      computePulls();
-      showAll();
+      datasets.food = { nodes: data.food.nodes, links: data.food.links };
+      datasets.all = { nodes: data.all.nodes, links: data.all.links };
+      maxStage = data.all.max_stage || 0;
+      const slider = document.getElementById("s-stage");
+      if (slider) {
+        slider.max = maxStage;
+        slider.value = maxStage;
+        document.getElementById("v-stage").textContent = maxStage;
+        stageLimit = maxStage;
+      }
+      document.getElementById("btn-food").classList.add("active");
+      applyDataset("food");
     })
     .catch(err => {
       document.getElementById("counts").textContent = "ERROR loading food_tree.json: " + err;
@@ -281,9 +311,16 @@ function startFollow() {
 /* ---------- data binding ---------- */
 function showAll() {
   selectedId = null;
-  visibleIds = new Set(state.allNodes.map(n => n.id));
+  let nodes = state.allNodes;
+  let links = state.allLinks;
+  if (currentMode === "all" && stageLimit != null) {
+    const keep = new Set(nodes.filter(n => (n.stage ?? 0) <= stageLimit).map(n => n.id));
+    nodes = nodes.filter(n => keep.has(n.id));
+    links = links.filter(l => keep.has(l.source) && keep.has(l.target));
+  }
+  visibleIds = new Set(nodes.map(n => n.id));
   setMode();
-  bind(state.allNodes, state.allLinks);
+  bind(nodes, links);
   fitView();
 }
 
@@ -471,11 +508,8 @@ function selectNode(id) {
 
 function clearSelection() {
   selectedId = null;
-  visibleIds = new Set(state.allNodes.map(n => n.id));
-  state.allLinks.forEach(l => l.highlighted = false);
+  showAll();
   document.getElementById("detail").classList.add("hidden");
-  bind(state.allNodes, state.allLinks);
-  setMode();
 }
 
 /* ---------- zoom / fit ---------- */
@@ -737,8 +771,12 @@ function fmtDur(secs) {
 function renderLegend() {
   const el = document.getElementById("legend");
   el.innerHTML = "";
-  for (const cat of ["raw", "stock", "soup", "preserve", "drink", "meat_fish",
-                     "produce", "crafted", "golden", "potion", "ingredient"]) {
+  const isAll = currentMode === "all";
+  const cats = isAll
+    ? ["raw", "ingredient", "tag", "food", "tool", "building", "material", "misc"]
+    : ["raw", "stock", "soup", "preserve", "drink", "meat_fish",
+       "produce", "crafted", "golden", "potion", "ingredient"];
+  for (const cat of cats) {
     const div = document.createElement("div");
     const sw = document.createElement("span");
     sw.className = "sw";
@@ -783,6 +821,29 @@ document.getElementById("btn-relations").addEventListener("click", () => {
   document.getElementById("btn-relations").textContent =
     "Relations: " + (showRelations ? "on" : "off");
   bind(state.allNodes, state.allLinks);
+});
+
+// mode toggle: Food | All
+document.getElementById("btn-food").addEventListener("click", () => {
+  if (currentMode === "food") return;
+  document.getElementById("btn-food").classList.add("active");
+  document.getElementById("btn-all").classList.remove("active");
+  document.getElementById("stage-bar").classList.add("hidden");
+  applyDataset("food");
+  renderLegend();
+});
+document.getElementById("btn-all").addEventListener("click", () => {
+  if (currentMode === "all") return;
+  document.getElementById("btn-all").classList.add("active");
+  document.getElementById("btn-food").classList.remove("active");
+  document.getElementById("stage-bar").classList.remove("hidden");
+  applyDataset("all");
+  renderLegend();
+});
+document.getElementById("s-stage").addEventListener("input", (e) => {
+  stageLimit = +e.target.value;
+  document.getElementById("v-stage").textContent = stageLimit;
+  showAll();
 });
 document.getElementById("btn-deselect").addEventListener("click", clearSelection);
 document.getElementById("btn-focus-made-by").addEventListener("click", () => {

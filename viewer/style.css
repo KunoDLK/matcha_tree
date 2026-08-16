@@ -79,6 +79,27 @@ button {
   cursor: pointer;
 }
 button:hover { background: #2d3949; }
+button.active { background: #2d3949; border-color: #5b8def; color: #fff; }
+
+/* --- mode toggle + progression slider --- */
+.mode-group { display: inline-flex; gap: 4px; }
+.mode-group button { padding: 4px 8px; }
+#stage-bar {
+  position: fixed;
+  top: 56px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 6px 14px;
+  font-size: 12px;
+  z-index: 19;
+  box-shadow: 0 4px 20px rgba(0,0,0,.4);
+}
+#stage-bar.hidden { display: none; }
+#stage-bar label { display: flex; align-items: center; gap: 8px; }
+#stage-bar .dim { color: var(--dim); font-size: 12px; min-width: 2ch; }
 
 /* --- force tuning panel --- */
 #tune {

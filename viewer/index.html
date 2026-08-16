@@ -12,12 +12,23 @@
 
   <div id="toolbar">
     <span class="title">🍵 Matcha Flavoured Food Tree</span>
+    <span class="mode-group">
+      <button id="btn-food" title="Show only food crafting tree">Food</button>
+      <button id="btn-all" title="Show every craftable item in the datapack">All</button>
+    </span>
     <button id="btn-reset" title="Reset zoom and clear selection">Reset</button>
     <button id="btn-fit" title="Fit all nodes on screen">Fit</button>
     <button id="btn-tune" title="Tune simulation forces">Tune</button>
     <button id="btn-relations" title="Show/hide relations between items">Relations: on</button>
     <span id="mode-label" class="dim"></span>
     <span id="counts" class="dim"></span>
+  </div>
+
+  <div id="stage-bar" class="hidden">
+    <label>Progress
+      <input type="range" id="s-stage" min="0" max="0" step="1" value="0">
+      <span id="v-stage" class="dim">0</span>
+    </label>
   </div>
 
   <div id="tune" class="hidden">
