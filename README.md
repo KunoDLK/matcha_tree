@@ -76,6 +76,33 @@ to follow it.
 - Items the resource pack doesn't texture (vanilla cake, raw meats, sugar…)
   fall back to a lettered chip instead of an icon.
 
+## Docker
+
+Serve the viewer headlessly in a container (no pywebview/browser needed):
+
+```bash
+docker build -t matcha-tree .
+docker run -d --name matcha -p 8325:8080 matcha-tree
+# open http://localhost:8325
+```
+
+With docker-compose:
+
+```yaml
+services:
+  matcha:
+    image: matcha-tree:latest
+    build: .
+    container_name: matcha
+    restart: unless-stopped
+    ports:
+      - "8325:8080"
+```
+
+The container runs `app.py --server-port 8080`, binding on `0.0.0.0` so the
+viewer is reachable from the host or other containers (e.g. a reverse proxy
+that routes `https://matcha:8080` to the tree).
+
 ## Requirements
 
 - Python 3.10+
