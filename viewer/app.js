@@ -70,6 +70,7 @@ let linkById = new Map();
 let selectedId = null;      // current focus node
 let visibleIds = new Set(); // ids currently in the simulation
 let follow = false;         // camera follows the visible nodes while they settle
+let showRelations = true;   // toggle edges + the link force
 
 const state = {
   allNodes: [],
@@ -294,7 +295,7 @@ function bind(nodes, links) {
   });
 
   // fresh string-keyed copies so forceLink's mutation never corrupts state.allLinks
-  const bindLinks = links.map(l => ({
+  const bindLinks = (showRelations ? links : []).map(l => ({
     source: l.source, target: l.target,
     types: l.types, highlighted: !!l.highlighted,
   }));
@@ -767,6 +768,12 @@ document.getElementById("btn-reset").addEventListener("click", () => {
 document.getElementById("btn-fit").addEventListener("click", fitView);
 document.getElementById("btn-tune").addEventListener("click", () => {
   document.getElementById("tune").classList.toggle("hidden");
+});
+document.getElementById("btn-relations").addEventListener("click", () => {
+  showRelations = !showRelations;
+  document.getElementById("btn-relations").textContent =
+    "Relations: " + (showRelations ? "on" : "off");
+  bind(state.allNodes, state.allLinks);
 });
 document.getElementById("btn-deselect").addEventListener("click", clearSelection);
 document.getElementById("btn-focus-made-by").addEventListener("click", () => {
