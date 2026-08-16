@@ -510,11 +510,11 @@ document.addEventListener("click", (e) => {
   }
 });
 
-/* ---------- score tooltip (shown while the Tune panel is open) ---------- */
+/* ---------- score tooltip (always shown on hover) ---------- */
 document.addEventListener("mousemove", (e) => {
   const tip = document.getElementById("scoretip");
   const g = e.target.closest?.("g.node");
-  if (!g || document.getElementById("tune").classList.contains("hidden")) {
+  if (!g) {
     tip.classList.add("hidden");
     return;
   }
@@ -526,13 +526,11 @@ document.addEventListener("mousemove", (e) => {
   const rank = 1 + foods.filter(n => computeScore(n) < score).length;
   const upPct = -pull * 100;   // + = up, - = down
   const sign = upPct > 0 ? "+" : "";
-  const fmtScore = s => s >= 1e6 || s <= -1e6 ? s.toExponential(2) : s.toFixed(2);
   const bad = hasBadEffect(d) ? ` <span class="st-bad">⚠ debuff</span>` : "";
   tip.innerHTML =
     `<div class="st-name">${esc(d.label)}${bad}</div>` +
     `<div class="st-rank">rank ${rank}/${foods.length} of foods</div>` +
-    `<div class="st-row"><span>Score</span><b>${fmtScore(score)}</b></div>` +
-    `<div class="st-row"><span>log score</span><b>${signedLog(score).toFixed(2)}</b></div>` +
+    `<div class="st-row"><span>Score</span><b>${signedLog(score).toFixed(2)}</b></div>` +
     `<div class="st-row"><span>Pull</span><b>${sign}${Math.round(upPct)}% up</b></div>` +
     `<div class="st-sec">Factors</div>` +
     `<div class="st-row"><span>Lore (❤)</span><b>${f.loreAmount}</b></div>` +
