@@ -10,6 +10,7 @@ import http.server
 import os
 import socketserver
 import threading
+import time
 import webbrowser
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -29,13 +30,13 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         super().end_headers()
 
 
-def start_server(port):
+def start_server(port, host="127.0.0.1"):
     class ReuseTCPServer(socketserver.ThreadingTCPServer):
         allow_reuse_address = True
         allow_reuse_port = True
         daemon_threads = True
 
-    httpd = ReuseTCPServer(("127.0.0.1", port), Handler)
+    httpd = ReuseTCPServer((host, port), Handler)
     thread = threading.Thread(target=httpd.serve_forever, daemon=True)
     thread.start()
     return httpd
@@ -44,6 +45,8 @@ def start_server(port):
 def main():
     ap = argparse.ArgumentParser(description="Matcha food-tree viewer")
     ap.add_argument("--port", type=int, default=PORT)
+    ap.add_argument("--server-port", type=int, default=None,
+                    help="serve statically on 0.0.0.0 at a fixed port (headless, no GUI)")
     ap.add_argument("--browser", action="store_true",
                     help="open in default browser instead of a pywebview window")
     args = ap.parse_args()
@@ -57,6 +60,16 @@ def main():
         else:
             print("ERROR: food_tree.json not found. Run extract.py first.")
             raise SystemExit(1)
+
+    if args.server_port:
+        start_server(args.server_port, host="0.0.0.0")
+        print(f"Serving viewer at http://0.0.0.0:{args.server_port}/")
+        try:
+            while True:
+                time.sleep(3600)
+        except KeyboardInterrupt:
+            pass
+        return
 
     start_server(args.port)
     url = f"http://127.0.0.1:{args.port}/"
