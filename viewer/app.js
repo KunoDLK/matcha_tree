@@ -220,9 +220,18 @@ function setupSimulation() {
       .strength(0.1))
     .force("charge", d3.forceManyBody().strength(-273))
     .force("collide", d3.forceCollide().radius(d => nodeRadius(d) + collidePadding).iterations(2))
-    .force("center", d3.forceCenter(0, 0))
+    .force("center", centerForce)
     .force("score", scoreForce)
     .on("tick", ticked);
+}
+
+// spring toward the origin; strength scales how hard nodes are pulled back
+let centerStrength = 0.2;
+function centerForce(alpha) {
+  for (const node of simulation.nodes()) {
+    node.vx -= node.x * alpha * centerStrength;
+    node.vy -= node.y * alpha * centerStrength;
+  }
 }
 
 function nodeRadius(n) {
@@ -810,6 +819,7 @@ function wireTune() {
     simulation.force("collide").radius(d => nodeRadius(d) + collidePadding);
   });
   set("s-pull", v => v.toFixed(2), v => { scoreStrength = v; });
+  set("s-center", v => v.toFixed(2), v => { centerStrength = v; });
   const weightSliders = {
     "s-f-lore": "loreAmount",
     "s-f-extra": "extraLore",
