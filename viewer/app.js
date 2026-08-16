@@ -170,7 +170,7 @@ function load() {
       linkById = new Map(state.allLinks.map(l => [l.source + "|" + l.target, l]));
 
       computePulls();
-      showAll();
+      revealAll();
     })
     .catch(err => {
       document.getElementById("counts").textContent = "ERROR loading food_tree.json: " + err;
@@ -275,6 +275,29 @@ function showAll() {
   setMode();
   bind(state.allNodes, state.allLinks);
   fitView();
+}
+
+// reveal the tree one node at a time (visual flare on startup)
+const REVEAL_STEP_MS = 50;   // delay between nodes appearing
+function revealAll() {
+  selectedId = null;
+  visibleIds = new Set(state.allNodes.map(n => n.id));
+  setMode();
+  bind([], []);
+
+  const total = state.allNodes.length;
+  let count = 0;
+  const timer = setInterval(() => {
+    count++;
+    const nodes = state.allNodes.slice(0, count);
+    const added = new Set(nodes.map(n => n.id));
+    const links = state.allLinks.filter(l => added.has(l.source) && added.has(l.target));
+    bind(nodes, links);
+    if (count >= total) {
+      clearInterval(timer);
+      fitView();
+    }
+  }, REVEAL_STEP_MS);
 }
 
 // d3.forceLink mutates link.source/target into node object refs, so keys must
