@@ -616,7 +616,7 @@ function showDetail(id) {
   header.appendChild(tag);
 
   let html = "";
-  const cost = computeRawCost(id);
+  const cost = n.raw ? null : computeRawCost(id);
   if (cost) {
     const craftNote = n.recipes && n.recipes.length > 1
       ? " (cheapest recipe)" : "";
