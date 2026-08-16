@@ -73,6 +73,11 @@ MEAT_FISH_IDS = {"cooked_beef", "cooked_chicken", "cooked_cod", "cooked_mutton",
                  "cooked_tropical_fish", "cooked_pufferfish",
                  "charred_meat", "charred_fish"}
 
+# recipes to drop entirely (file name inside data/food/recipe/)
+SKIP_RECIPE_FILES = {
+    "dough_from_water.json",   # potion + flour -> 1 dough (redundant alt)
+}
+
 
 def slugify(name):
     s = re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
@@ -300,6 +305,8 @@ def main():
         return resolved
 
     for path, fn in pack.recipe_files():
+        if fn in SKIP_RECIPE_FILES:
+            continue
         with open(path) as f:
             d = json.load(f)
         rtype = d.get("type", "")
