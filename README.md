@@ -38,3 +38,7 @@ docker build -t matcha-tree . && docker run -d -p 8325:8080 matcha-tree
 
 Python 3.10+ and a browser. `pywebview` (plus a GTK/Qt backend) is optional for a
 native window instead of the browser.
+
+## License
+
+GNU General Public License v3.0 — see [LICENSE](LICENSE).
